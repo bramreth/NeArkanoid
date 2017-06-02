@@ -1,9 +1,12 @@
 #include <SFML/Graphics.hpp>
 using namespace std;
 using namespace sf;
+/*
+ * An enhanced version of arkanoid using SFML: credit to https://github.com/SuperV1234 for his tutorial for SFML
+ */
 constexpr int windowWidth{800},windowHeight{600};
 constexpr float ballRadius{10.f},ballVelocity{8.f};//f declares 32bit float
-constexpr float paddleWidth{100.f},paddleHeight{8.f}, paddleVelocity{6.f};
+constexpr float paddleWidth{100.f},paddleHeight{8.f}, paddleVelocity{10.f};
 constexpr float brickWidth{60.f},brickHeight{20.f};
 constexpr int countBlocksX{11}, countBlocksY{4};
 /*
@@ -62,8 +65,8 @@ struct Brick{
     RectangleShape shape;
     Brick(float x, float y){
         shape.setPosition(x,y);
-        shape.setSize({paddleWidth,paddleHeight});
-        shape.setFillColor(Color::Yellow);
+        shape.setSize({brickWidth,brickHeight});
+        shape.setFillColor(Color::White);
         shape.setOrigin(brickWidth/2.f,brickHeight/2.f);
     }
     float x(){ return shape.getPosition().x;}
@@ -90,6 +93,26 @@ void testCollision(Paddle& mPaddle, Ball& mBall) {
     else
         mBall.velocity.x = ballVelocity;
 }
+void testCollision(Brick& mBrick, Ball& mBall) {
+    if(!isIntersecting(mBrick, mBall)) return;
+    mBrick.destroyed=true;
+    float overlapLeft{mBall.right() - mBrick.left()};
+    float overlapRight{mBrick.right() - mBall.left()};
+    float overlapTop{mBall.down() - mBrick.up()};
+    float overlapBottom{mBrick.down() - mBall.up()};
+    //find the magnitude of overlaps and make a boolean direction for the ball
+    bool ballFromLeft(abs(overlapLeft) < abs(overlapRight));
+    bool ballFromTop(abs(overlapTop) < abs(overlapBottom));
+
+    // Let's store the minimum overlaps for the X and Y axes.
+    float minOverlapX{ballFromLeft ? overlapLeft : overlapRight};
+    float minOverlapY{ballFromTop ? overlapTop : overlapBottom};
+    //figure out whether collision was vertical or horizontal
+    if(abs(minOverlapX) < abs(minOverlapY))
+        mBall.velocity.x = ballFromLeft ? -ballVelocity : ballVelocity;
+    else
+        mBall.velocity.y = ballFromTop ? -ballVelocity : ballVelocity;
+}
 int main()
 {
     RenderWindow window({windowWidth,windowHeight}, "super arkanoid");
@@ -97,22 +120,35 @@ int main()
     window.setVerticalSyncEnabled(true);
     Ball ball{windowWidth/2,windowHeight/2};
     Paddle paddle{windowWidth/2,windowHeight-50};
+    //make bricks
+    vector<Brick> bricks;
+    for(int x=0; x<countBlocksX;++x){
+        for(int y=0; y<countBlocksY;++y){
+            bricks.emplace_back(
+                    (x + 1) * (brickWidth + 3) + 22, (y + 2) * (brickHeight + 3));//fix// x??
+        }
+    }
     //game loop
     while(true){
         //clear window
         window.clear(Color::Black);
         if(Keyboard::isKeyPressed(Keyboard::Key::Escape))
             break;
-        vector<Brick> bricks;
-        for(int x=0; x<countBlocksX;++x){
-            for(int y=0; y<countBlocksY;++y){
-                bricks.emplace_back(
-                        (x + 1) * (brickWidth + 3) + 22, (y + 2) * (brickHeight + 3));//fix// x??
-            }
-        }
+
         ball.update();
         paddle.update();
+        //test collisions
         testCollision(paddle,ball);
+        for(auto& brick : bricks) testCollision(brick, ball);
+
+        // And we use the "erase-remove idiom" to remove all `destroyed`
+        // blocks from the block vector - using a cool C++11 lambda!
+        bricks.erase(remove_if(begin(bricks), end(bricks),
+                               [](const Brick& mBrick)
+                               {
+                                   return mBrick.destroyed;
+                               }),
+                     end(bricks));
         window.draw(ball.shape);
         window.draw(paddle.shape);
         for(auto& brick: bricks)
