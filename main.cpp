@@ -1,14 +1,21 @@
 #include <SFML/Graphics.hpp>
+#include <iostream>
+
 using namespace std;
 using namespace sf;
 /*
  * An enhanced version of arkanoid using SFML: credit to https://github.com/SuperV1234 for his tutorial for SFML
+ *
+ * todo files/ leaderboards/ powerups
  */
 constexpr int windowWidth{800},windowHeight{600};
 constexpr float ballRadius{10.f},ballVelocity{8.f};//f declares 32bit float
 constexpr float paddleWidth{100.f},paddleHeight{8.f}, paddleVelocity{10.f};
 constexpr float brickWidth{60.f},brickHeight{20.f};
 constexpr int countBlocksX{11}, countBlocksY{4};
+RenderWindow window({windowWidth,windowHeight}, "super arkanoid");
+int lives{3};
+int scoreVal{0};
 /*
  * ball definition
  */
@@ -31,11 +38,25 @@ struct Ball{
     void update(){
         //move the shape
         shape.move(velocity);
+        switch(lives){
+            case 3:shape.setFillColor(Color::Yellow);
+                break;
+            case 2:shape.setFillColor(Color::Blue);
+                break;
+            case 1:shape.setFillColor(Color::Green);
+                break;
+            default:
+                break;
+        }
         //wall detection nd collision handling
         if(left()<0)velocity.x=ballVelocity;
         else if(right()>windowWidth)velocity.x=-ballVelocity;
         if(up()<0)velocity.y=ballVelocity;
-        else if(down()>windowHeight)velocity.y=-ballVelocity;
+        else if(down()>windowHeight){
+            velocity.y=-ballVelocity;
+            lives--;
+            scoreVal/=2;
+        }
     }
 };
 struct Paddle{
@@ -96,6 +117,7 @@ void testCollision(Paddle& mPaddle, Ball& mBall) {
 void testCollision(Brick& mBrick, Ball& mBall) {
     if(!isIntersecting(mBrick, mBall)) return;
     mBrick.destroyed=true;
+    scoreVal+=50;
     float overlapLeft{mBall.right() - mBrick.left()};
     float overlapRight{mBrick.right() - mBall.left()};
     float overlapTop{mBall.down() - mBrick.up()};
@@ -113,13 +135,19 @@ void testCollision(Brick& mBrick, Ball& mBall) {
     else
         mBall.velocity.y = ballFromTop ? -ballVelocity : ballVelocity;
 }
-int main()
-{
-    RenderWindow window({windowWidth,windowHeight}, "super arkanoid");
-    window.setFramerateLimit(30);
-    window.setVerticalSyncEnabled(true);
+void playGame(){
     Ball ball{windowWidth/2,windowHeight/2};
     Paddle paddle{windowWidth/2,windowHeight-50};
+    Text score;
+    Font font;
+    if (!font.loadFromFile("../Oxygen-Regular.ttf"))
+    {
+        cout << "Error loading font\n" ;
+    }
+    score.setScale(0.75,0.75);
+    score.setPosition({windowWidth - 150, 3});
+    score.setColor(Color::White);
+    score.setFont(font);
     //make bricks
     vector<Brick> bricks;
     for(int x=0; x<countBlocksX;++x){
@@ -129,7 +157,7 @@ int main()
         }
     }
     //game loop
-    while(true){
+    while(lives>0){
         //clear window
         window.clear(Color::Black);
         if(Keyboard::isKeyPressed(Keyboard::Key::Escape))
@@ -151,9 +179,19 @@ int main()
                      end(bricks));
         window.draw(ball.shape);
         window.draw(paddle.shape);
+        //update and draw score
+        score.setString("score: "+to_string(scoreVal));
+        window.draw(score);
         for(auto& brick: bricks)
             window.draw(brick.shape);
         window.display();
     }
+}
+int main()
+{
+    window.setFramerateLimit(30);
+    window.setVerticalSyncEnabled(true);
+    playGame();
+
     return 0;
 }
