@@ -17,6 +17,7 @@ constexpr int countBlocksX{11}, countBlocksY{4};
 RenderWindow window({windowWidth,windowHeight}, "super arkanoid");
 int lives{3};
 int scoreVal{0};
+int combo{1};
 bool submitted{false};
 string str;
 Font font;
@@ -59,6 +60,7 @@ struct Ball{
         else if(down()>windowHeight){
             velocity.y=-ballVelocity;
             lives--;
+            combo=1;
             scoreVal/=2;
         }
     }
@@ -123,20 +125,22 @@ struct Score{
 Score scoreList[8];
 void testCollision(Paddle& mPaddle, Ball& mBall) {
     if(!isIntersecting(mPaddle, mBall)) return;
+    combo=1;
     // otherwise bounce the ball
     mBall.velocity.y = -ballVelocity;
 
     // And let's direct it dependently on the position where the
     // paddle was hit.
     if(mBall.x() < mPaddle.x())
-        mBall.velocity.x = -ballVelocity;
+        mBall.velocity.x = -ballVelocity/(mPaddle.x()/mBall.x());
     else
-        mBall.velocity.x = ballVelocity;
+        mBall.velocity.x = ballVelocity/(mBall.x()/mPaddle.x());
 }
 void testCollision(Brick& mBrick, Ball& mBall) {
     if(!isIntersecting(mBrick, mBall)) return;
     mBrick.destroyed=true;
-    scoreVal+=50;
+    combo++;
+    scoreVal+=50+(combo-2)*10;
     float overlapLeft{mBall.right() - mBrick.left()};
     float overlapRight{mBrick.right() - mBall.left()};
     float overlapTop{mBall.down() - mBrick.up()};
@@ -162,7 +166,7 @@ void playGame(){
         cout << "Error loading font\n" ;
     }
     score.setScale(0.75,0.75);
-    score.setPosition({windowWidth - 150, 3});
+    score.setPosition({windowWidth - 250, 3});
     score.setColor(Color::White);
     score.setFont(font);
     //make bricks
@@ -196,7 +200,7 @@ void playGame(){
         window.draw(ball.shape);
         window.draw(paddle.shape);
         //update and draw score
-        score.setString("score: "+to_string(scoreVal));
+        score.setString("score: "+to_string(scoreVal) +" combo: "+to_string(combo));
         window.draw(score);
         for(auto& brick: bricks)
             window.draw(brick.shape);
