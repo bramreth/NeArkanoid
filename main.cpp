@@ -206,20 +206,46 @@ void playGame(){
 /*
  * update to use saving and loading
  */
-void loadLeaderboard(){
-    str="nam";
-    scoreList[0]={2000, "wow"};
-    scoreList[1]={1750, "dam"};
-    scoreList[2]={1500, "sly"};
-    scoreList[3]={1250, "hah"};
-    scoreList[4]={1000, "meh"};
-    scoreList[5]={750, "cry"};
-    scoreList[6]={500, "bad"};
-    scoreList[7]={250, "lsr"};
+void loadLeaderboard() {
+    str = "nam";
+    ifstream infile;
+    infile.open("lboard.txt");
+    if (infile.fail()) {
+        scoreList[0] = {2000, "wow"};
+        scoreList[1] = {1750, "dam"};
+        scoreList[2] = {1500, "sly"};
+        scoreList[3] = {1250, "hah"};
+        scoreList[4] = {1000, "meh"};
+        scoreList[5] = {750, "cry"};
+        scoreList[6] = {500, "bad"};
+        scoreList[7] = {250, "lsr"};
+    } else{
+        bool flipFlop = true;
+        int i = 0;
+        string tmp;
+        for (std::string line; std::getline(infile, line); )
+        {
+
+            if(flipFlop){
+                tmp = line;
+            }else{
+                int score = stoi(line);
+                scoreList[i] = {score,tmp};
+                i++;
+            }
+            flipFlop = !flipFlop;
+        }
+    }
+
 }
 void saveLeaderboard(){
     ofstream outfile;
-    outfile.open("lboard.dat");
+    outfile.open("lboard.txt");
+    outfile.clear();
+    for(int i{0};i<8;i++) {
+        outfile << scoreList[i].name << endl << scoreList[i].score<<endl;
+    }
+    outfile.close();
 }
 void leaderBoard(){
         while(true){
@@ -256,11 +282,11 @@ void leaderBoard(){
                                     scoreList[j] = scoreList[j-1];
                                 }
                                 scoreList[i]={scoreVal,str};
-                                submitted = true;
                                 saveLeaderboard();
                                 break;
                             }
                         }
+                        submitted = true;
                         //break;
                     }else if (event.text.unicode < 128 && !submitted) {
                         if(str.length() >= 3){
@@ -283,7 +309,7 @@ void leaderBoard(){
 };
 int main()
 {
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(30);
     window.setVerticalSyncEnabled(true);
     loadLeaderboard();
     playGame();
