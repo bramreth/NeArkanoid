@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(SOURCE_FILES main.cpp)
 add_executable(superArkanoid ${SOURCE_FILES})
 # Define sources and executable
-set(EXECUTABLE_NAME "MySFML")
+set(EXECUTABLE_NAME "Nearkanoid")
 add_executable(${EXECUTABLE_NAME} main.cpp)
 
 
