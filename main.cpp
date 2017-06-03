@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 using namespace sf;
@@ -10,12 +11,15 @@ using namespace sf;
  */
 constexpr int windowWidth{800},windowHeight{600};
 constexpr float ballRadius{10.f},ballVelocity{8.f};//f declares 32bit float
-constexpr float paddleWidth{100.f},paddleHeight{8.f}, paddleVelocity{10.f};
+constexpr float paddleWidth{140.f},paddleHeight{8.f}, paddleVelocity{10.f};
 constexpr float brickWidth{60.f},brickHeight{20.f};
 constexpr int countBlocksX{11}, countBlocksY{4};
 RenderWindow window({windowWidth,windowHeight}, "super arkanoid");
 int lives{3};
 int scoreVal{0};
+bool submitted{false};
+string str;
+Font font;
 /*
  * ball definition
  */
@@ -101,7 +105,22 @@ template <class T1, class T2> bool isIntersecting(T1& mA, T2& mB) {
     return mA.right() >= mB.left() && mA.left() <= mB.right() &&
            mA.down() >= mB.up() && mA.up() <= mB.down();
 }
-
+struct Score{
+    int score;
+    string name;
+    Score(int scoreIn, string nameIn){
+        score = scoreIn;
+        name = nameIn;
+    }
+    Score(){
+        score = 0;
+        name = "-";
+    }
+    string printScore(){
+        return name + " - " + to_string(score) +"\n";
+    }
+};
+Score scoreList[8];
 void testCollision(Paddle& mPaddle, Ball& mBall) {
     if(!isIntersecting(mPaddle, mBall)) return;
     // otherwise bounce the ball
@@ -125,7 +144,6 @@ void testCollision(Brick& mBrick, Ball& mBall) {
     //find the magnitude of overlaps and make a boolean direction for the ball
     bool ballFromLeft(abs(overlapLeft) < abs(overlapRight));
     bool ballFromTop(abs(overlapTop) < abs(overlapBottom));
-
     // Let's store the minimum overlaps for the X and Y axes.
     float minOverlapX{ballFromLeft ? overlapLeft : overlapRight};
     float minOverlapY{ballFromTop ? overlapTop : overlapBottom};
@@ -139,7 +157,6 @@ void playGame(){
     Ball ball{windowWidth/2,windowHeight/2};
     Paddle paddle{windowWidth/2,windowHeight-50};
     Text score;
-    Font font;
     if (!font.loadFromFile("../Oxygen-Regular.ttf"))
     {
         cout << "Error loading font\n" ;
@@ -160,9 +177,8 @@ void playGame(){
     while(lives>0){
         //clear window
         window.clear(Color::Black);
-        if(Keyboard::isKeyPressed(Keyboard::Key::Escape))
+        if(Keyboard::isKeyPressed(Keyboard::Key::Escape)||bricks.empty())
             break;
-
         ball.update();
         paddle.update();
         //test collisions
@@ -172,11 +188,11 @@ void playGame(){
         // And we use the "erase-remove idiom" to remove all `destroyed`
         // blocks from the block vector - using a cool C++11 lambda!
         bricks.erase(remove_if(begin(bricks), end(bricks),
-                               [](const Brick& mBrick)
-                               {
-                                   return mBrick.destroyed;
-                               }),
-                     end(bricks));
+                           [](const Brick& mBrick)
+                           {
+                               return mBrick.destroyed;
+                           }),
+                 end(bricks));
         window.draw(ball.shape);
         window.draw(paddle.shape);
         //update and draw score
@@ -187,11 +203,93 @@ void playGame(){
         window.display();
     }
 }
+/*
+ * update to use saving and loading
+ */
+void loadLeaderboard(){
+    str="nam";
+    scoreList[0]={2000, "wow"};
+    scoreList[1]={1750, "dam"};
+    scoreList[2]={1500, "sly"};
+    scoreList[3]={1250, "hah"};
+    scoreList[4]={1000, "meh"};
+    scoreList[5]={750, "cry"};
+    scoreList[6]={500, "bad"};
+    scoreList[7]={250, "lsr"};
+}
+void saveLeaderboard(){
+    ofstream outfile;
+    outfile.open("lboard.dat");
+}
+void leaderBoard(){
+        while(true){
+            window.clear(Color::Black);
+            Text leaderboard;
+            Text newScore;
+            leaderboard.setColor(Color::White);
+            leaderboard.setFont(font);
+            newScore.setColor(Color::Yellow);
+            newScore.setFont(font);
+            string boardValues{"Leaderboard:\n\n"};
+            for(int x{0};x< 8;x++){
+                boardValues += scoreList[x].printScore();
+            }
+            leaderboard.setString(boardValues);
+            leaderboard.setPosition({windowWidth/2-leaderboard.getLocalBounds().width/2, windowHeight/8});
+            //set 3 character name
+            Event event;
+            if(window.pollEvent(event)){
+                if (event.type == Event::TextEntered)
+                {
+                    // Handle ASCII characters only
+                    if(event.text.unicode==8 && !submitted) {
+                        if (str.length() > 0) {
+                            str.pop_back();
+                        }
+                    }else if(event.text.unicode == 27) {
+                        break;
+                    }else if(event.text.unicode == 13 && !submitted){
+                        //add score and break
+                        for(int i{0}; i<8;i++){
+                            if(scoreList[i].score<scoreVal){
+                                for(int j{7}; j>i;j--) {
+                                    scoreList[j] = scoreList[j-1];
+                                }
+                                scoreList[i]={scoreVal,str};
+                                submitted = true;
+                                saveLeaderboard();
+                                break;
+                            }
+                        }
+                        //break;
+                    }else if (event.text.unicode < 128 && !submitted) {
+                        if(str.length() >= 3){
+                            str="";
+                        }
+                        if (str.length() < 3) {
+                            str += static_cast<char>(event.text.unicode);
+                        }
+                    }
+                }
+            }
+            Score newVal(scoreVal,str);
+            newScore.setString(newVal.printScore());
+            newScore.setPosition(leaderboard.getPosition().x,leaderboard.getPosition().y+leaderboard.getLocalBounds().height);
+            window.draw(leaderboard);
+            if(!submitted)
+                window.draw(newScore);
+            window.display();
+        }
+};
 int main()
 {
-    window.setFramerateLimit(30);
+    window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);
+    loadLeaderboard();
     playGame();
-
+    //empty event buffer
+    Event event;
+    while (window.pollEvent(event));
+    leaderBoard();
     return 0;
 }
